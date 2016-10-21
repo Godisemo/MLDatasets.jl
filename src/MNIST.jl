@@ -9,10 +9,8 @@ const defdir = joinpath(Pkg.dir("MLDatasets"), "datasets/mnist")
 * [dir]: save directory. Default: "MLDatasets/datasets/mnist"
 """
 function traindata(dir=defdir)
-    x = gzread(dir,"train-images-idx3-ubyte.gz")[17:end]
-    x = reshape(x/255, 28, 28, 60000)
-    y = gzread(dir,"train-labels-idx1-ubyte.gz")[9:end]
-    y = Vector{Int}(y)
+    x = convert(Array{Float64}, data(dir, "train-images-idx3-ubyte.gz")) / 255
+    y = convert(Array{Int64}, data(dir, "train-labels-idx1-ubyte.gz"))
     x, y
 end
 
@@ -20,20 +18,24 @@ end
 * [dir]: save directory. Default: "MLDatasets/datasets/mnist"
 """
 function testdata(dir=defdir)
-    data = gzread(dir,"t10k-images-idx3-ubyte.gz")[17:end]
-    x = reshape(data/255, 28, 28, 10000)
-    data = gzread(dir,"t10k-labels-idx1-ubyte.gz")[9:end]
-    y = Vector{Int}(data)
+    x = convert(Array{Float64}, data(dir, "t10k-images-idx3-ubyte.gz")) / 255
+    y = convert(Array{Int64}, data(dir, "t10k-labels-idx1-ubyte.gz"))
     x, y
 end
 
-function gzread(dir, filename)
+function data(dir, filename)
     mkpath(dir)
     url = "http://yann.lecun.com/exdb/mnist"
     path = joinpath(dir, filename)
     isfile(path) || download("$(url)/$(filename)", path)
-    data = gzopen(read, path)
-    data
+    stream = gzopen(path)
+    magic_number = ntoh(read(stream, Int32))
+    @assert magic_number == 2049 || magic_number == 2051
+    ndims = magic_number & 0xff
+    dim = reverse(ntoh.(read(stream, Int32, ndims)))
+    data = read(stream, UInt8, dim...)
+    close(stream)
+    return data
 end
 
 end
