@@ -1,7 +1,6 @@
 export MNIST
 module MNIST
 
-using GZip
 using FixedPointNumbers
 
 const defdir = joinpath(Pkg.dir("MLDatasets"), "datasets/mnist")
@@ -20,15 +19,18 @@ macro dataset(name, image_file, label_file)
     end |> esc
 end
 
-@dataset traindata "train-images-idx3-ubyte.gz" "train-labels-idx1-ubyte.gz"
-@dataset testdata "t10k-images-idx3-ubyte.gz" "t10k-labels-idx1-ubyte.gz"
+@dataset traindata "train-images-idx3-ubyte" "train-labels-idx1-ubyte"
+@dataset testdata "t10k-images-idx3-ubyte" "t10k-labels-idx1-ubyte"
 
 function data{T}(::Type{T}, dir, filename)
     mkpath(dir)
     url = "http://yann.lecun.com/exdb/mnist"
     path = joinpath(dir, filename)
-    isfile(path) || download("$(url)/$(filename)", path)
-    stream = gzopen(path)
+    if !isfile(path)
+        download("$(url)/$(filename).gz", "$(path).gz")
+        run(`gzip --decompress "$(path).gz"`)
+    end
+    stream = open(path)
     magic_number = ntoh(read(stream, Int32))
     @assert magic_number == 2049 || magic_number == 2051
     ndims = magic_number & 0xff
